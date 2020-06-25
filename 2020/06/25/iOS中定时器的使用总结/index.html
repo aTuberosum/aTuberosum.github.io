@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="在面试中或者项目的开发中经常会遇到定时器相关的知识，由于之前一直在做跨端开发，原生的一些知识点长久不用，再使用时总是会疏忽一些使用的细节及注意点。周五的时候和同事讨论了下之前面试的关于NSTimer循环引用的问题，在验证问题的时候，写了定时器，结果NSTimer绑定的方法并没有执行。看了API才知道要将timer加入到当前的线程的runloop中才可以。当时我的表情是这样的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="iOS中定时器的使用总结">
+<meta property="og:url" content="http://yoursite.com/2020/06/25/iOS%E4%B8%AD%E5%AE%9A%E6%97%B6%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/index.html">
+<meta property="og:site_name" content="一点轩">
+<meta property="og:description" content="在面试中或者项目的开发中经常会遇到定时器相关的知识，由于之前一直在做跨端开发，原生的一些知识点长久不用，再使用时总是会疏忽一些使用的细节及注意点。周五的时候和同事讨论了下之前面试的关于NSTimer循环引用的问题，在验证问题的时候，写了定时器，结果NSTimer绑定的方法并没有执行。看了API才知道要将timer加入到当前的线程的runloop中才可以。当时我的表情是这样的">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/06/25/iOS%E4%B8%AD%E5%AE%9A%E6%97%B6%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/ganga.jpeg">
+<meta property="og:image" content="http://yoursite.com/2020/06/25/iOS%E4%B8%AD%E5%AE%9A%E6%97%B6%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/1.jpg">
+<meta property="og:image" content="http://yoursite.com/2020/06/25/iOS%E4%B8%AD%E5%AE%9A%E6%97%B6%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/2.jpg">
+<meta property="article:published_time" content="2020-06-25T08:11:59.000Z">
+<meta property="article:modified_time" content="2020-06-25T08:38:50.871Z">
+<meta property="article:author" content="一颗韭菜">
+<meta property="article:tag" content="iOS">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/06/25/iOS%E4%B8%AD%E5%AE%9A%E6%97%B6%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/ganga.jpeg">
+
+<link rel="canonical" href="http://yoursite.com/2020/06/25/iOS%E4%B8%AD%E5%AE%9A%E6%97%B6%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>iOS中定时器的使用总结 | 一点轩</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">一点轩</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">苟日新，又日新，日日新</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/06/25/iOS%E4%B8%AD%E5%AE%9A%E6%97%B6%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="一颗韭菜">
+      <meta itemprop="description" content="登高自卑，行远自迩">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="一点轩">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          iOS中定时器的使用总结
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2020-06-25 16:11:59 / 修改时间：16:38:50" itemprop="dateCreated datePublished" datetime="2020-06-25T16:11:59+08:00">2020-06-25</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/iOS/" itemprop="url" rel="index"><span itemprop="name">iOS</span></a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="far fa-file-word"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>8.4k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="far fa-clock"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>8 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>在面试中或者项目的开发中经常会遇到定时器相关的知识，由于之前一直在做跨端开发，原生的一些知识点长久不用，再使用时总是会疏忽一些使用的细节及注意点。周五的时候和同事讨论了下之前面试的关于<code>NSTimer</code>循环引用的问题，在验证问题的时候，写了定时器，结果<code>NSTimer</code>绑定的方法并没有执行。看了API才知道要将timer加入到当前的线程的<code>runloop</code>中才可以。当时我的表情是这样的</p>
+<img src="/2020/06/25/iOS%E4%B8%AD%E5%AE%9A%E6%97%B6%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/ganga.jpeg" class="" title="表情">
+
+
+<a id="more"></a>
+
+<p>为了避免以后遇到类似问题，现通过一个简单的demo将iOS中关于定时器的知识总结一下，demo比较简单由两个页面组成如下图：</p>
+<img src="/2020/06/25/iOS%E4%B8%AD%E5%AE%9A%E6%97%B6%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/1.jpg" class="" title="图片1"><img src="/2020/06/25/iOS%E4%B8%AD%E5%AE%9A%E6%97%B6%E5%99%A8%E7%9A%84%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/2.jpg" class="" title="图片2">
+<p>第一个页面点击后进入含有定时器的页面，在定时器页面内有一个倒计时按钮，点击按钮后开始倒计时。</p>
+<blockquote>
+<p>当按钮的<code>buttonType</code>是<code>UIButtonTypeSystem</code>是倒计时 按钮标题会跳动，解决方法是：</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">btn.titleLabel.text</span> = @<span class="string">"按钮标题"</span><span class="comment">;</span></span><br><span class="line"><span class="section">[btn setTitle:@"按钮标题" forState:UIControlStateNormal]</span></span><br></pre></td></tr></table></figure>
+<p>或者直接将<code>buttonType</code>改为<code>UIButtonTypeCustom</code>。</p>
+</blockquote>
+<p>iOS中定时器的实现有以下三种：</p>
+<ul>
+<li>使用<code>NSTimer</code>实现，这也是最常用的定时器实现方式。这种实现方式不能确保准时。</li>
+<li>使用<code>dispatch_source_t</code>实现。</li>
+<li>使用<code>CADisplayLink</code>实现。</li>
+</ul>
+<h2 id="NSTimer定时器"><a href="#NSTimer定时器" class="headerlink" title="NSTimer定时器"></a>NSTimer定时器</h2><p><code>NSTimer</code>定时器是iOS项目中最常用的定时器但在使用时要注意除了以<code>scheduledTimerWithTimeInterval</code>开头的方法外，其他<code>NSTimer</code>实例化方法生成的定时器都要加入到当前线程的<code>runloop</code>中才能生效。</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 下边的两个方法生成的定时器或默认加入到runloop的 NSDefaultRunloopMode中</span></span><br><span class="line"><span class="comment">// 当页面🈶滑动列表是runloop的mode会切换，造成timer停止</span></span><br><span class="line">+ (<span class="built_in">NSTimer</span> *)scheduledTimerWithTimeInterval:(<span class="built_in">NSTimeInterval</span>)interval repeats:(<span class="built_in">BOOL</span>)repeats block:(<span class="keyword">void</span> (^)(<span class="built_in">NSTimer</span> *timer))block；</span><br><span class="line"></span><br><span class="line">+ (<span class="built_in">NSTimer</span> *)scheduledTimerWithTimeInterval:(<span class="built_in">NSTimeInterval</span>)ti target:(<span class="keyword">id</span>)aTarget selector:(SEL)aSelector userInfo:(<span class="keyword">nullable</span> <span class="keyword">id</span>)userInfo repeats:(<span class="built_in">BOOL</span>)yesOrNo</span><br><span class="line"></span><br><span class="line"><span class="comment">// 除了以上方法其他方法生成的timer需要手动加入到当前线程的runloop中才能生效</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>使用以<code>scheduledTimerWithTimeInterval</code>开头的方法生成定时器：</li>
+</ul>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/// timer 倒计时</span></span><br><span class="line">  <span class="comment">///NSTimer 定时器凡是以 scheduledTimerWithTimeInterval 开始的方法生成定时器默认都会加入到当前线程的runloop中，其他类方法或实例方法</span></span><br><span class="line">  <span class="comment">// 使用weakSelf防止循环引用</span></span><br><span class="line">  __<span class="keyword">weak</span> <span class="keyword">typeof</span>(<span class="keyword">self</span>)weakSelf = <span class="keyword">self</span>;</span><br><span class="line">  <span class="keyword">self</span>.timer = [<span class="built_in">NSTimer</span> scheduledTimerWithTimeInterval:<span class="number">1.0</span> repeats:<span class="literal">YES</span> block:^(<span class="built_in">NSTimer</span> * _Nonnull timer) &#123;</span><br><span class="line">      __<span class="keyword">strong</span> <span class="keyword">typeof</span>(weakSelf)strongSelf = weakSelf;</span><br><span class="line">      <span class="keyword">if</span> (strongSelf.count &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">          strongSelf.btn.titleLabel.text = [<span class="built_in">NSString</span> stringWithFormat: <span class="string">@"%lu秒后重新获取"</span>,strongSelf.count];</span><br><span class="line">          [strongSelf.btn setTitle:[<span class="built_in">NSString</span> stringWithFormat: <span class="string">@"%lu秒后重新获取"</span>,strongSelf.count] forState:<span class="built_in">UIControlStateNormal</span>];</span><br><span class="line">          [strongSelf.btn setEnabled:<span class="literal">NO</span>];</span><br><span class="line">          strongSelf.count--;</span><br><span class="line">      &#125;<span class="keyword">else</span> &#123;</span><br><span class="line">          strongSelf.btn.titleLabel.text = <span class="string">@"重新获取验证码"</span>;</span><br><span class="line">          [strongSelf.btn setTitle:<span class="string">@"获取验证码"</span> forState:<span class="built_in">UIControlStateNormal</span>];</span><br><span class="line">          [strongSelf.btn setEnabled:<span class="literal">YES</span>];</span><br><span class="line">          [strongSelf.timer invalidate];</span><br><span class="line">          strongSelf.timer = <span class="literal">nil</span>;</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;];</span><br><span class="line"><span class="comment">//self.timer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(timerFire:)</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>使用非<code>scheduledTimerWithTimeInterval</code>开头的定时器方法</li>
+</ul>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">    <span class="keyword">self</span>.timer = [<span class="built_in">NSTimer</span> timerWithTimeInterval:<span class="number">1.0</span> target:<span class="keyword">self</span> selector:<span class="keyword">@selector</span>(timerFire:) userInfo:<span class="literal">nil</span> repeats:<span class="literal">YES</span>];</span><br><span class="line">    <span class="built_in">NSLog</span>(<span class="string">@"页面中的定时器%@"</span>,<span class="keyword">self</span>.timer);</span><br><span class="line">    <span class="comment">// 通过NSInvocation包装定时器方法，生成的定时器要手动加入到当前线程的runloop中，否则定时器无效</span></span><br><span class="line"><span class="comment">//    NSMethodSignature *sig = [self methodSignatureForSelector:@selector(timerFire:)];</span></span><br><span class="line"><span class="comment">//    NSInvocation *inv = [NSInvocation invocationWithMethodSignature:sig];</span></span><br><span class="line"><span class="comment">//    inv.target = self;</span></span><br><span class="line"><span class="comment">//    inv.selector = @selector(timerFire:);</span></span><br><span class="line"><span class="comment">//    self.timer = [NSTimer scheduledTimerWithTimeInterval:1.0 invocation:inv repeats:YES];</span></span><br><span class="line">    [<span class="keyword">self</span>.timer setFireDate:[<span class="built_in">NSDate</span> distantPast]];</span><br><span class="line">    [[<span class="built_in">NSRunLoop</span> currentRunLoop] addTimer:<span class="keyword">self</span>.timer forMode:<span class="built_in">NSDefaultRunLoopMode</span>];</span><br></pre></td></tr></table></figure>
+
+<p>在页面消失时要使timer失效</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">  - (<span class="keyword">void</span>)viewWillDisappear:(<span class="built_in">BOOL</span>)animated &#123;</span><br><span class="line">    [<span class="keyword">super</span> viewWillDisappear:animated];</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">self</span>.timer) &#123;</span><br><span class="line">      [<span class="keyword">self</span>.timer invalidate];</span><br><span class="line">      <span class="keyword">self</span>.timer = <span class="literal">nil</span>;</span><br><span class="line">   &#125;  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>NSTimer</code>的循环引用问题也是面试中常遇到的，对于循环引用首先我们演分析造成循环引用的原因：</p>
+<ol>
+<li>如果<code>timer</code>是当前<code>controller</code>的属性的话 ，如果<code>timer</code>是通过<code>block</code>回调的话要注意<code>block</code>的循环引用问题，在block内部使用<code>weakSelf</code>来避免，如果<code>timer</code>回调是当前<code>controller</code>的方法的话，会把当前<code>controller</code>当做<code>target</code>传给<code>timer</code>这样就会造成<code>timer</code>和<code>controller</code>相互强引用的问题，如果在<code>viewWillDisappear:</code>方法中使<code>timer</code>失效并赋值<code>nil</code>也是没问题的。但如果没有在<code>viewWillDisappear:</code>或<code>viewDidDisappear:</code>中使<code>timer</code>失效，则<code>controller</code>的内存将无法释放。</li>
+<li>如果<code>timer</code>是局部变量，这种情况下并不会造成循环引用，但是<code>controller</code>依然无法释放，这是因为<code>timer</code>加入<code>runloop</code>后，<code>runloop</code>会对<code>timer</code>造成强引用，如果这是<code>controller</code>又是<code>timer</code>定时方法的<code>target</code>的话，<code>controller</code>同样不会释放，对于这种情况，最好使用<code>timer</code>的<code>block</code>的回调方式，在<code>block</code>中使用<code>weakSelf</code>,或者使用中间代理对象，让中间代理作为<code>timer</code>的<code>target</code>,在通过代理，将定时方法回调个当前的<code>controller</code>。当然最好还是<code>timer</code>作为属性使用，这样可以在页面生命周期方法中使<code>timer</code>失效并赋值<code>nil</code>来解决循环引用。虽然使用代理对象可以解决<code>controller</code>的无法释放问题，但是加入到<code>runloop</code>的<code>timer</code>仍然强引用着代理对象，<code>timer</code>仍在不停地回调代理对象，这对资源也是一种浪费，在网上看到的代理对象都没解决<code>timer</code>仍不停回调的问题。</li>
+</ol>
+<p>综合以上两点来看，解决<code>timer</code>循环引用的问题最好将<code>timer</code>设置成属性，并在页面生命周期的即将消失或已经消失的方法中让<code>timer</code>失效，并赋值<code>nil</code>。对于局部变量的<code>timer</code>最好使用<code>timer</code>的<code>block</code>回调，如果不使用<code>block</code>回调，就需要创建一个中间代理对象，让代理对象弱引用当前<code>controller</code>并将定时方法转发个当前对象。</p>
+<p>对于中间代理对象的设计，可以继承<code>NSObject</code>或者<code>NSProxy</code>，网上很多博客都是通过继承<code>NSProxy</code>来创建代理对象。继承<code>NSObject</code>和<code>NSProxy</code>的代理对象做的事情都是一样的–做消息转发，不过对于继承<code>NSObject</code>的代理对象,在消息转发前会去父类也就是<code>NSObject</code>的方法列表去查找，而继承<code>NSProxy</code>的代理对象省去了这一步，目前我了解的也就这点差别。下边是我实现的分别基于<code>NSObject</code>和<code>NSProxy</code>的中间代理对象，其中当代理对象的target释放后，会将方法交个代理对象自己实现，在代理对象自己的方法中会使代理对象所代理页面加入<code>runloop</code>的<code>timer</code>失效，防止<code>timer</code>在页面消失时仍然不停地回调。这样即使在代理对象代理的页面忘记使<code>timer</code>失效也不会造成内存的泄露。</p>
+<ul>
+<li>继承与<code>NSObject</code>的代理对象</li>
+</ul>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">TimerMiddleWare</span> : <span class="title">NSObject</span></span></span><br><span class="line">- (<span class="keyword">instancetype</span>)init UNAVAILABLE_ATTRIBUTE;</span><br><span class="line"></span><br><span class="line">- (<span class="keyword">instancetype</span>)initWithTarget:(<span class="keyword">id</span>)target;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"><span class="meta">#import <span class="meta-string">"TimerMiddleWare.h"</span></span></span><br><span class="line"><span class="meta">#import <span class="meta-string">&lt;objc/runtime.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">TimerMiddleWare</span> ()</span></span><br><span class="line"><span class="keyword">@property</span>(<span class="keyword">nonatomic</span>, <span class="keyword">weak</span>)<span class="keyword">id</span> target;</span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@implementation</span> <span class="title">TimerMiddleWare</span></span></span><br><span class="line"></span><br><span class="line">- (<span class="keyword">instancetype</span>)initWithTarget:(<span class="keyword">id</span>)target&#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">self</span> = [<span class="keyword">super</span> init]) &#123;</span><br><span class="line">        _target = target;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">self</span>;</span><br><span class="line">&#125;</span><br><span class="line">- (<span class="keyword">id</span>)forwardingTargetForSelector:(SEL)aSelector &#123;</span><br><span class="line">    <span class="built_in">NSLog</span>(<span class="string">@"-------"</span>);</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">self</span>.target) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">self</span>.target;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// target 已经销毁了 对于局部变量定义的定时器无法在页面的ViewWillDisappear:方法中失效</span></span><br><span class="line">        <span class="comment">// 交给代理对象做失效处理</span></span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">self</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">- (<span class="built_in">NSMethodSignature</span> *)methodSignatureForSelector:(SEL)aSelector&#123;</span><br><span class="line">    <span class="keyword">return</span> [<span class="built_in">NSMethodSignature</span> signatureWithObjCTypes:<span class="string">"v@:@"</span>];</span><br><span class="line">&#125;</span><br><span class="line">- (<span class="keyword">void</span>)forwardInvocation:(<span class="built_in">NSInvocation</span> *)anInvocation&#123;</span><br><span class="line">    <span class="built_in">NSLog</span>(<span class="string">@"----&gt;%@"</span>,anInvocation);</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">self</span>.target) &#123;</span><br><span class="line">        <span class="built_in">NSLog</span>(<span class="string">@"------------"</span>);</span><br><span class="line">        anInvocation.target = <span class="keyword">self</span>.target;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// target 已释放 将消息交个对象自己处理</span></span><br><span class="line">        anInvocation.target = <span class="keyword">self</span>;</span><br><span class="line">        anInvocation.selector = <span class="keyword">@selector</span>(timerValidate:);</span><br><span class="line">        <span class="comment">// 手动调用</span></span><br><span class="line">        [anInvocation invoke];</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">-(<span class="keyword">void</span>) timerValidate:(<span class="built_in">NSTimer</span> *)timer&#123;</span><br><span class="line">    <span class="built_in">NSLog</span>(<span class="string">@"代理对象中的定时器%@"</span>,timer);</span><br><span class="line">    [timer invalidate];</span><br><span class="line">    timer = <span class="literal">nil</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>在页面中调用时：</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">TimerProxy *middle = [TimerProxy proxyTarget:<span class="keyword">self</span>];</span><br><span class="line">[<span class="built_in">NSTimer</span> timerWithTimeInterval:<span class="number">1.0</span> target:middle selector:<span class="keyword">@selector</span>(timerFire:) userInfo:<span class="literal">nil</span> repeats:<span class="literal">YES</span>];</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>继承<code>NSProxy</code>的代理对象</li>
+</ul>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">TimerProxy</span> : <span class="title">NSProxy</span></span></span><br><span class="line"></span><br><span class="line">+ (<span class="keyword">instancetype</span>)proxyTarget:(<span class="keyword">id</span>)target;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#import <span class="meta-string">"TimerProxy.h"</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@interface</span> <span class="title">TimerProxy</span> ()</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">@property</span> (<span class="keyword">nonatomic</span>, <span class="keyword">weak</span>)<span class="keyword">id</span> target;</span><br><span class="line"></span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">@implementation</span> <span class="title">TimerProxy</span></span></span><br><span class="line">+ (<span class="keyword">instancetype</span>)proxyTarget:(<span class="keyword">id</span>)target&#123;</span><br><span class="line">    <span class="comment">// 没有init方法</span></span><br><span class="line">    TimerProxy *proxy = [<span class="keyword">self</span> alloc];</span><br><span class="line">    proxy.target = target;</span><br><span class="line">    <span class="keyword">return</span> proxy;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">- (<span class="built_in">NSMethodSignature</span> *)methodSignatureForSelector:(SEL)sel&#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">self</span>.target) &#123;</span><br><span class="line">        <span class="comment">// 如果直接返回 [self.target methodSignatureForSelector:sel]的话</span></span><br><span class="line">        <span class="comment">// 被代理页面释放后会崩溃</span></span><br><span class="line">        <span class="keyword">return</span> [<span class="keyword">self</span>.target methodSignatureForSelector:sel];</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 查看YYKit中WeakProxy的返回方式</span></span><br><span class="line">    <span class="comment">// 如果返回[self methodSignatureForSelector:@selector(invalidateTimer:)] 也会崩溃</span></span><br><span class="line">    <span class="keyword">return</span> [<span class="built_in">NSObject</span> methodSignatureForSelector:<span class="keyword">@selector</span>(init)];</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 消息转发</span></span><br><span class="line">- (<span class="keyword">void</span>)forwardInvocation:(<span class="built_in">NSInvocation</span> *)invocation&#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">self</span>.target) &#123;</span><br><span class="line">        [invocation invokeWithTarget:<span class="keyword">self</span>.target];</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        invocation.target = <span class="keyword">self</span>;</span><br><span class="line">        invocation.selector = <span class="keyword">@selector</span>(invalidateTimer:);</span><br><span class="line">        [invocation invoke];</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line">- (<span class="keyword">void</span>)invalidateTimer:(<span class="built_in">NSTimer</span> *)timer&#123;</span><br><span class="line">    <span class="built_in">NSLog</span>(<span class="string">@"Proxy中的定时器%@"</span>,timer);</span><br><span class="line">    [timer invalidate];</span><br><span class="line">    timer = <span class="literal">nil</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">@end</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>基于<code>NSProxy</code>的代理对象使用同基于<code>NSObject</code>的代理对象，这里就不贴代码了。</p>
+<h2 id="使用dispatch-source-t"><a href="#使用dispatch-source-t" class="headerlink" title="使用dispatch_source_t"></a>使用<code>dispatch_source_t</code></h2><p>相较于<code>NSTimer</code>来说<code>dispatch_source_t</code>更准时，它不会受<code>runloop</code>的mode影响。</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 创建定时器</span></span><br><span class="line"><span class="keyword">self</span>.dis_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, <span class="number">0</span>, <span class="number">0</span>, dispatch_get_main_queue());</span><br><span class="line"><span class="comment">// 设置定时器开始时间，执行间隔、执行时长</span></span><br><span class="line">dispatch_source_set_timer(<span class="keyword">self</span>.dis_timer, DISPATCH_TIME_NOW, <span class="number">1.0</span> * <span class="built_in">NSEC_PER_SEC</span>, <span class="number">60</span> * <span class="built_in">NSEC_PER_SEC</span>);</span><br><span class="line">__<span class="keyword">weak</span> <span class="keyword">typeof</span>(<span class="keyword">self</span>)weakSelf = <span class="keyword">self</span>;</span><br><span class="line"><span class="comment">// 设置定时器回调方法 注意block循环引用问题</span></span><br><span class="line">dispatch_source_set_event_handler(<span class="keyword">self</span>.dis_timer, ^&#123;</span><br><span class="line">    __<span class="keyword">strong</span> <span class="keyword">typeof</span>(weakSelf)strongSelf = weakSelf;</span><br><span class="line">    <span class="keyword">if</span> (strongSelf.count &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        [strongSelf titleChange];</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        strongSelf.btn.titleLabel.text = <span class="string">@"重新获取验证码"</span>;</span><br><span class="line">        [strongSelf.btn setTitle:<span class="string">@"获取验证码"</span> forState:<span class="built_in">UIControlStateNormal</span>];</span><br><span class="line">        [strongSelf.btn setEnabled:<span class="literal">YES</span>];</span><br><span class="line">        dispatch_source_cancel(strongSelf.dis_timer);</span><br><span class="line">        strongSelf.dis_timer = <span class="literal">nil</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br><span class="line"><span class="comment">// 定时器设置完成后默认是挂起的，手动开启。</span></span><br><span class="line">dispatch_resume(<span class="keyword">self</span>.dis_timer);</span><br></pre></td></tr></table></figure>
+
+<h2 id="使用CADisplayLink"><a href="#使用CADisplayLink" class="headerlink" title="使用CADisplayLink"></a>使用<code>CADisplayLink</code></h2><p><code>CADisplayLink</code>是将绘制同步设备刷新频率的定时器，一般很少用于业务中的定时和倒计时任务。</p>
+<p>实例化<code>CADisplayLink</code>对象可一个对象的<code>target</code>提供同步屏幕刷新的回调方法，通过设置<code>CADisplayLink</code>对象的<code>preferredFramesPerSecond</code>属性，可以设置<code>CADisplayLink</code>对象的刷新频率，该属性字面意思是每秒的帧数，现在系统默认的一般是60帧每秒。<code>CADisplayLink</code>对象同<code>NSTimer</code>一样要加入到<code>runloop</code>中才能生效，同样的执行完定时任务后也要调用<code>invalidate</code>方法，将<code>CADisplayLink</code>对象从<code>runloop</code>中移除。</p>
+<p>使用<code>CADisplayLink</code>做定时器代码如下</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">self</span>.link = [<span class="built_in">CADisplayLink</span> displayLinkWithTarget:<span class="keyword">self</span> selector:<span class="keyword">@selector</span>(linkFire:)];</span><br><span class="line"><span class="comment">// 设置每秒刷新一次</span></span><br><span class="line"><span class="keyword">self</span>.link.preferredFramesPerSecond = <span class="number">1</span>;</span><br><span class="line">[<span class="keyword">self</span>.link addToRunLoop:[<span class="built_in">NSRunLoop</span> currentRunLoop] forMode:<span class="built_in">NSRunLoopCommonModes</span>];</span><br></pre></td></tr></table></figure>
+
+<p>不要忘记从<code>runloop</code>中移除</p>
+<figure class="highlight objc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">-(<span class="keyword">void</span>)viewWillDisappear:(<span class="built_in">BOOL</span>)animated&#123;</span><br><span class="line">  [<span class="keyword">super</span> viewWillDisappear:animated];</span><br><span class="line">  <span class="keyword">if</span>(<span class="keyword">self</span>.link) &#123;</span><br><span class="line">    [<span class="keyword">self</span>.link invalidate];</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这篇文章主要总结了iOS中定时器的使用及要注意的问题，包括<code>NSTimer</code>的创建及使用，一及<code>NSTimer</code>的循环引用问题及解决方案，以及创建定时器的三种不同方式。</p>
+<p>拖了好久，终于写了第二篇博客，表达还是有所欠缺，一直想着要注重平时积累，但是拖延的毛病还是改不掉。总结还是不够清楚。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/iOS/" rel="tag"><i class="fa fa-tag"></i> iOS</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/06/25/%E9%85%8D%E7%BD%AE%E5%A4%9A%E8%B4%A6%E6%88%B7SSH-key/" rel="prev" title="配置多账户SSH key">
+      <i class="fa fa-chevron-left"></i> 配置多账户SSH key
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#NSTimer定时器"><span class="nav-number">1.</span> <span class="nav-text">NSTimer定时器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用dispatch-source-t"><span class="nav-number">2.</span> <span class="nav-text">使用dispatch_source_t</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用CADisplayLink"><span class="nav-number">3.</span> <span class="nav-text">使用CADisplayLink</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="一颗韭菜"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">一颗韭菜</p>
+  <div class="site-description" itemprop="description">登高自卑，行远自迩</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">2</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/aTuberosum" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;aTuberosum" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/930417452@qq.com" title="E-Mail → 930417452@qq.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">一颗韭菜</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-chart-area"></i>
+    </span>
+      <span class="post-meta-item-text">站点总字数：</span>
+    <span title="站点总字数">10k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+      <span class="post-meta-item-text">站点阅读时长 &asymp;</span>
+    <span title="站点阅读时长">9 分钟</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
